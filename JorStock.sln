@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35931.197 d17.13
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JorStock", "JorStock\JorStock.csproj", "{B9D4499A-9349-4714-8983-D50ECB426A34}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B9D4499A-9349-4714-8983-D50ECB426A34}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B9D4499A-9349-4714-8983-D50ECB426A34}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B9D4499A-9349-4714-8983-D50ECB426A34}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B9D4499A-9349-4714-8983-D50ECB426A34}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {DB9B9FED-E1C2-4236-93FE-3682B8C89AB1}
+	EndGlobalSection
+EndGlobal
