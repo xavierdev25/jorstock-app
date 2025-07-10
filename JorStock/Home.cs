@@ -14,36 +14,62 @@ using System.Data;
 
 namespace JorStock
 {
+    /// <summary>
+    /// Formulario principal de la aplicación JorStock
+    /// Gestiona el inventario de autopartes con operaciones CRUD completas
+    /// Incluye funcionalidades de búsqueda, ordenamiento y gestión de proveedores
+    /// </summary>
     public partial class Home : Form
     {
 
+        /// <summary>
+        /// Importación de la función de Windows API para crear regiones con bordes redondeados
+        /// Permite dar un aspecto moderno al formulario principal
+        /// </summary>
         [DllImport("Gdi32.dll", EntryPoint = "CreateRoundRectRgn")]
         private static extern IntPtr CreateRoundRectRgn
         (
-            int nLeftRect,
-            int nTopRect,
-            int nRightRect,
-            int nBottomRect,
-            int nWidthEllipse,
-            int nHeightEllipse
+            int nLeftRect,      // Coordenada X del rectángulo izquierdo
+            int nTopRect,       // Coordenada Y del rectángulo superior
+            int nRightRect,     // Coordenada X del rectángulo derecho
+            int nBottomRect,    // Coordenada Y del rectángulo inferior
+            int nWidthEllipse,  // Ancho de la elipse para las esquinas redondeadas
+            int nHeightEllipse  // Alto de la elipse para las esquinas redondeadas
         );
+        
+        /// <summary>
+        /// Constructor del formulario principal
+        /// Inicializa la interfaz de usuario y configura todos los eventos necesarios
+        /// </summary>
         public Home()
         {
             InitializeComponent();
+            // Elimina el borde estándar del formulario para un diseño personalizado
             this.FormBorderStyle = FormBorderStyle.None;
+            // Aplica bordes redondeados al formulario
             Region = System.Drawing.Region.FromHrgn(CreateRoundRectRgn(0, 0, Width, Height, 15, 15));
+            // Configura los placeholders (textos de ayuda) en los campos de entrada
             ConfigurarPlaceholders();
+            // Configura los eventos de cambio de texto para validación en tiempo real
             ConfigurarEventosTextChanged();
+            // Configura el menú contextual para ordenamiento de productos
             ConfigurarMenuOrdenamiento();
+            // Asigna eventos a los botones principales
             btnLimpiarBuscar.Click += btnLimpiarBuscar_Click;
             btnEditar.Click += btnEditar_Click;
+            // Configura el DataGridView para selección de filas completas
             tblProductos.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
         }
 
+        /// <summary>
+        /// Configura el menú contextual para ordenamiento de productos
+        /// Crea opciones de ordenamiento por diferentes criterios
+        /// </summary>
         private void ConfigurarMenuOrdenamiento()
         {
             menuOrdenar = new ContextMenuStrip();
 
+            // Agrega opciones de ordenamiento al menú contextual
             menuOrdenar.Items.Add("Nombre de Productos (A - Z)", null, OrdenarProductos_Click);
             menuOrdenar.Items.Add("Nombre de Productos (Z - A)", null, OrdenarProductos_Click);
             menuOrdenar.Items.Add("Más stock", null, OrdenarProductos_Click);
@@ -53,11 +79,17 @@ namespace JorStock
             menuOrdenar.Items.Add("Fecha reciente", null, OrdenarProductos_Click);
             menuOrdenar.Items.Add("Fecha antigua", null, OrdenarProductos_Click);
 
+            // Asigna el evento de clic al botón de ordenamiento
             button5.Click += button5_Click;
         }
 
+        /// <summary>
+        /// Configura los placeholders (textos de ayuda) en todos los campos de entrada
+        /// Los placeholders proporcionan guías visuales al usuario sobre qué información ingresar
+        /// </summary>
         private void ConfigurarPlaceholders()
         {
+            // Establece los textos de placeholder para cada campo
             txtAutoparte.Text = "Nombre de Autoparte";
             txtPrecio.Text = "Precio";
             txtProveedor.Text = "Proveedor";
@@ -66,6 +98,7 @@ namespace JorStock
             txtNomAuto.Text = "Nombre de Autoparte";
             txtProv.Text = "Proveedor";
 
+            // Configura los eventos de placeholder para cada campo
             ConfigurarEventosPlaceholder(txtAutoparte, "Nombre de Autoparte");
             ConfigurarEventosPlaceholder(txtPrecio, "Precio");
             ConfigurarEventosPlaceholder(txtProveedor, "Proveedor");
@@ -75,12 +108,21 @@ namespace JorStock
             ConfigurarEventosPlaceholder(txtProv, "Proveedor");
         }
 
+        /// <summary>
+        /// Configura los eventos de placeholder para un TextBox específico
+        /// Maneja el comportamiento de mostrar/ocultar el texto de ayuda
+        /// </summary>
+        /// <param name="textBox">El TextBox al que se le configurarán los eventos</param>
+        /// <param name="placeholderText">El texto de placeholder que se mostrará</param>
         private void ConfigurarEventosPlaceholder(TextBox textBox, string placeholderText)
         {
+            // Establece el color gris para el texto de placeholder
             textBox.ForeColor = Color.Gray;
 
+            // Evento que se ejecuta cuando el TextBox recibe el foco
             textBox.Enter += (sender, e) =>
             {
+                // Si el texto actual es el placeholder, lo limpia y cambia el color
                 if (textBox.Text == placeholderText)
                 {
                     textBox.Text = "";
@@ -88,8 +130,10 @@ namespace JorStock
                 }
             };
 
+            // Evento que se ejecuta cuando el TextBox pierde el foco
             textBox.Leave += (sender, e) =>
             {
+                // Si el campo está vacío, restaura el placeholder
                 if (string.IsNullOrWhiteSpace(textBox.Text))
                 {
                     textBox.Text = placeholderText;
@@ -98,23 +142,36 @@ namespace JorStock
             };
         }
 
+        /// <summary>
+        /// Evento que se ejecuta cuando el formulario se carga
+        /// Centra el formulario en la pantalla y carga los productos iniciales
+        /// </summary>
+        /// <param name="sender">Objeto que disparó el evento</param>
+        /// <param name="e">Argumentos del evento</param>
         private void Home_Load(object sender, EventArgs e)
         {
-            this.CenterToScreen();
-            CargarProductos();
+            this.CenterToScreen(); // Centra el formulario en la pantalla
+            CargarProductos(); // Carga la lista inicial de productos
         }
 
+        /// <summary>
+        /// Carga todos los productos desde la base de datos MongoDB
+        /// Organiza los productos por proveedor y fecha, y los muestra en el DataGridView
+        /// </summary>
         private async void CargarProductos()
         {
             try
             {
+                // Establece la conexión a MongoDB
                 var client = new MongoClient("mongodb://localhost:27017");
                 var database = client.GetDatabase("JorStock");
                 var productosCollection = database.GetCollection<BsonDocument>("productos");
                 var proveedoresCollection = database.GetCollection<BsonDocument>("proveedores");
 
+                // Obtiene todos los productos de la base de datos
                 var productos = await productosCollection.Find(new BsonDocument()).ToListAsync();
 
+                // Crea una tabla de datos para mostrar en el DataGridView
                 DataTable dt = new DataTable();
                 dt.Columns.Add("Nombre", typeof(string));
                 dt.Columns.Add("Stock", typeof(int));
@@ -123,14 +180,16 @@ namespace JorStock
                 dt.Columns.Add("Serial", typeof(string));
                 dt.Columns.Add("Código de Proveedor", typeof(string));
                 dt.Columns.Add("Nombre Proveedor", typeof(string));
-
                 dt.Columns.Add("Grupo Proveedor", typeof(int));
 
+                // Diccionario para agrupar productos por proveedor
                 Dictionary<string, int> gruposProveedores = new Dictionary<string, int>();
                 int contadorGrupos = 1;
 
+                // Lista para almacenar productos con sus fechas para ordenamiento
                 List<Tuple<BsonDocument, DateTime>> productosConFecha = new List<Tuple<BsonDocument, DateTime>>();
 
+                // Primera pasada: identificar todos los códigos de proveedor únicos
                 foreach (var producto in productos)
                 {
                     if (producto.Contains("codigo_proveedor"))
@@ -143,6 +202,7 @@ namespace JorStock
                     }
                 }
 
+                // Segunda pasada: procesar fechas de productos
                 foreach (var producto in productos)
                 {
                     DateTime fechaProducto = DateTime.Now;
@@ -156,6 +216,7 @@ namespace JorStock
                     productosConFecha.Add(new Tuple<BsonDocument, DateTime>(producto, fechaProducto));
                 }
 
+                // Ordena los productos: primero por grupo de proveedor, luego por fecha (más reciente primero)
                 var productosOrdenados = productosConFecha
                     .OrderBy(p =>
                     {
@@ -169,14 +230,17 @@ namespace JorStock
                     .ThenByDescending(p => p.Item2)
                     .Select(p => p.Item1);
 
+                // Procesa cada producto ordenado y lo agrega a la tabla de datos
                 foreach (var producto in productosOrdenados)
                 {
                     DataRow row = dt.NewRow();
 
+                    // Extrae y asigna los datos del producto a la fila
                     row["Nombre"] = producto.Contains("nombre") ? producto["nombre"].ToString() : string.Empty;
                     row["Stock"] = producto.Contains("stock") ? producto["stock"].ToInt32() : 0;
                     row["Precio Unitario"] = producto.Contains("precio_unitario") ? producto["precio_unitario"].ToDecimal() : 0M;
 
+                    // Procesa la fecha del producto
                     if (producto.Contains("fecha"))
                     {
                         if (DateTime.TryParse(producto["fecha"].ToString(), out DateTime fechaParseada))
@@ -242,12 +306,16 @@ namespace JorStock
                     dt.Rows.Add(row);
                 }
 
+                // Asigna la tabla de datos como fuente del DataGridView
                 tblProductos.DataSource = dt;
 
+                // Oculta la columna de grupo de proveedor (solo se usa para ordenamiento interno)
                 tblProductos.Columns["Grupo Proveedor"].Visible = false;
 
+                // Configura la apariencia visual de los grupos de proveedores
                 ConfigurarAparienciaGruposProveedores();
 
+                // Configura las propiedades del DataGridView
                 tblProductos.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
                 tblProductos.AllowUserToAddRows = false;
                 tblProductos.AllowUserToDeleteRows = false;
@@ -260,19 +328,30 @@ namespace JorStock
             }
         }
 
+        /// <summary>
+        /// Configura el evento de formateo de celdas para aplicar colores alternados por grupo de proveedor
+        /// </summary>
         private void ConfigurarAparienciaGruposProveedores()
         {
+            // Remueve el evento anterior para evitar duplicados
             tblProductos.CellFormatting -= TblProductos_CellFormatting;
-
+            // Agrega el evento de formateo de celdas
             tblProductos.CellFormatting += TblProductos_CellFormatting;
         }
 
+        /// <summary>
+        /// Evento que se ejecuta cuando se formatea cada celda del DataGridView
+        /// Aplica colores alternados para distinguir visualmente los grupos de proveedores
+        /// </summary>
+        /// <param name="sender">Objeto que disparó el evento (DataGridView)</param>
+        /// <param name="e">Argumentos del evento de formateo</param>
         private void TblProductos_CellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
         {
             if (e.RowIndex >= 0 && tblProductos.Columns.Contains("Grupo Proveedor"))
             {
                 DataGridViewRow row = tblProductos.Rows[e.RowIndex];
 
+                // Obtiene el número de grupo del proveedor
                 int grupoProveedor = 0;
                 if (row.Cells["Grupo Proveedor"].Value != null &&
                     int.TryParse(row.Cells["Grupo Proveedor"].Value.ToString(), out int grupo))
@@ -280,50 +359,96 @@ namespace JorStock
                     grupoProveedor = grupo;
                 }
 
+                // Aplica colores alternados basados en el grupo del proveedor
                 if (grupoProveedor > 0)
                 {
                     if (grupoProveedor % 2 == 0)
                     {
+                        // Color azul claro para grupos pares
                         row.DefaultCellStyle.BackColor = Color.FromArgb(240, 248, 255);
                     }
                     else
                     {
+                        // Color gris claro para grupos impares
                         row.DefaultCellStyle.BackColor = Color.FromArgb(245, 245, 245);
                     }
                 }
             }
         }
 
+        /// <summary>
+        /// Evento que se ejecuta cuando se redimensiona el formulario
+        /// Reaplica los bordes redondeados para mantener la apariencia
+        /// </summary>
+        /// <param name="e">Argumentos del evento de redimensionamiento</param>
         protected override void OnResize(EventArgs e)
         {
             base.OnResize(e);
+            // Recrea la región con bordes redondeados con las nuevas dimensiones
             Region = System.Drawing.Region.FromHrgn(CreateRoundRectRgn(0, 0, Width, Height, 15, 15));
         }
 
+        /// <summary>
+        /// Evento que se ejecuta cuando se hace clic en el botón de minimizar
+        /// Minimiza el formulario principal
+        /// </summary>
+        /// <param name="sender">Objeto que disparó el evento (botón minimizar)</param>
+        /// <param name="e">Argumentos del evento</param>
         private void button10_Click(object sender, EventArgs e)
         {
             this.WindowState = FormWindowState.Minimized;
         }
 
+        /// <summary>
+        /// Evento que se ejecuta cuando se hace clic en el botón de cerrar
+        /// Cierra completamente la aplicación
+        /// </summary>
+        /// <param name="sender">Objeto que disparó el evento (botón cerrar)</param>
+        /// <param name="e">Argumentos del evento</param>
         private void button9_Click(object sender, EventArgs e)
         {
             Application.Exit();
         }
 
+        /// <summary>
+        /// Evento que se ejecuta cuando se hace clic en el botón de salir
+        /// Cierra completamente la aplicación
+        /// </summary>
+        /// <param name="sender">Objeto que disparó el evento (botón salir)</param>
+        /// <param name="e">Argumentos del evento</param>
         private void btnSalir_Click(object sender, EventArgs e)
         {
             Application.Exit();
         }
 
+        /// <summary>
+        /// Evento que se ejecuta cuando se hace clic en el contenido de una celda del DataGridView
+        /// Actualmente no implementado
+        /// </summary>
+        /// <param name="sender">Objeto que disparó el evento (DataGridView)</param>
+        /// <param name="e">Argumentos del evento de clic en celda</param>
         private void dataGridView1_CellContentClick(object sender, DataGridViewCellEventArgs e)
         {
 
         }
+        
+        /// <summary>
+        /// Variable que almacena el ID del producto que se está editando actualmente
+        /// Se usa para distinguir entre crear un nuevo producto y editar uno existente
+        /// </summary>
         private string productoEnEdicionId = null;
+        
+        /// <summary>
+        /// Método que maneja el evento de clic del botón guardar
+        /// Permite crear nuevos productos o actualizar productos existentes en la base de datos
+        /// </summary>
+        /// <param name="sender">Objeto que disparó el evento (botón guardar)</param>
+        /// <param name="e">Argumentos del evento</param>
         private async void btnGuardar_Click(object sender, EventArgs e)
         {
             try
             {
+                // Valida que todos los campos requeridos estén completos (no sean placeholders)
                 if (txtAutoparte.Text == "Nombre de Autoparte" ||
                     txtPrecio.Text == "Precio" ||
                     txtStock.Text == "Stock" ||
@@ -335,6 +460,7 @@ namespace JorStock
                     return;
                 }
 
+                // Valida que el precio sea un número decimal válido
                 if (!decimal.TryParse(txtPrecio.Text, out decimal precio))
                 {
                     MessageBox.Show("El precio debe ser un valor numérico.",
@@ -342,6 +468,7 @@ namespace JorStock
                     return;
                 }
 
+                // Valida que el stock sea un número entero válido
                 if (!int.TryParse(txtStock.Text, out int stock))
                 {
                     MessageBox.Show("El stock debe ser un valor numérico entero.",
@@ -349,40 +476,48 @@ namespace JorStock
                     return;
                 }
 
+                // Establece la conexión a MongoDB
                 var client = new MongoClient("mongodb://localhost:27017");
                 var database = client.GetDatabase("JorStock");
 
                 var proveedoresCollection = database.GetCollection<BsonDocument>("proveedores");
 
+                // Busca si el proveedor ya existe en la base de datos
                 var filtroProveedor = Builders<BsonDocument>.Filter.Eq("nombre", txtProveedor.Text);
                 var proveedorExistente = await proveedoresCollection.Find(filtroProveedor).FirstOrDefaultAsync();
 
                 string codigoProveedor;
 
+                // Si el proveedor no existe, lo crea automáticamente
                 if (proveedorExistente == null)
                 {
                     var nuevoProveedor = new BsonDocument
-    {
-        { "nombre", txtProveedor.Text },
-        { "fecha_registro", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") }
-    };
+                    {
+                        { "nombre", txtProveedor.Text },
+                        { "fecha_registro", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") }
+                    };
 
+                    // Inserta el nuevo proveedor en la base de datos
                     await proveedoresCollection.InsertOneAsync(nuevoProveedor);
 
+                    // Obtiene el proveedor recién creado para obtener su ID
                     proveedorExistente = await proveedoresCollection.Find(filtroProveedor).FirstOrDefaultAsync();
                     codigoProveedor = proveedorExistente["_id"].ToString();
                 }
                 else
                 {
+                    // Si el proveedor ya existe, usa su ID existente
                     codigoProveedor = proveedorExistente["_id"].ToString();
                 }
 
                 var productosCollection = database.GetCollection<BsonDocument>("productos");
 
+                // Determina si se está editando un producto existente o creando uno nuevo
                 if (productoEnEdicionId != null)
                 {
                     try
                     {
+                        // Actualiza el producto existente
                         var filtroProducto = Builders<BsonDocument>.Filter.Eq("_id", ObjectId.Parse(productoEnEdicionId));
 
                         var actualizacion = Builders<BsonDocument>.Update
@@ -405,6 +540,7 @@ namespace JorStock
                                 "Error de actualización", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         }
 
+                        // Limpia el ID de edición para indicar que ya no se está editando
                         productoEnEdicionId = null;
                     }
                     catch (Exception ex)
@@ -416,24 +552,26 @@ namespace JorStock
                 }
                 else
                 {
+                    // Crea un nuevo producto
                     var nuevoProducto = new BsonDocument
-            {
-                { "nombre", txtAutoparte.Text },
-                { "precio_unitario", precio },
-                { "stock", stock },
-                { "fecha", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") },
-                { "serial", txtCodeAut.Text },
-                { "codigo_proveedor", codigoProveedor }
-            };
+                    {
+                        { "nombre", txtAutoparte.Text },
+                        { "precio_unitario", precio },
+                        { "stock", stock },
+                        { "fecha", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") },
+                        { "serial", txtCodeAut.Text },
+                        { "codigo_proveedor", codigoProveedor }
+                    };
 
+                    // Inserta el nuevo producto en la base de datos
                     await productosCollection.InsertOneAsync(nuevoProducto);
 
                     MessageBox.Show("Producto guardado exitosamente.",
                         "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
 
+                // Limpia los campos del formulario y recarga la lista de productos
                 LimpiarCamposRegistro();
-
                 CargarProductos();
             }
             catch (Exception ex)
@@ -443,31 +581,53 @@ namespace JorStock
             }
         }
 
+        /// <summary>
+        /// Evento que se ejecuta cuando se hace clic en el botón de limpiar registro
+        /// Limpia todos los campos del formulario de registro
+        /// </summary>
+        /// <param name="sender">Objeto que disparó el evento (botón limpiar)</param>
+        /// <param name="e">Argumentos del evento</param>
         private void btnLimpiarRegistrar_Click(object sender, EventArgs e)
         {
             LimpiarCamposRegistro();
         }
 
+        /// <summary>
+        /// Limpia todos los campos del formulario de registro y restaura los placeholders
+        /// También limpia la variable de edición para indicar que no se está editando ningún producto
+        /// </summary>
         private void LimpiarCamposRegistro()
         {
+            // Restaura el placeholder y color para el campo de nombre de autoparte
             txtAutoparte.Text = "Nombre de Autoparte";
             txtAutoparte.ForeColor = Color.Gray;
 
+            // Restaura el placeholder y color para el campo de precio
             txtPrecio.Text = "Precio";
             txtPrecio.ForeColor = Color.Gray;
 
+            // Restaura el placeholder y color para el campo de stock
             txtStock.Text = "Stock";
             txtStock.ForeColor = Color.Gray;
 
+            // Restaura el placeholder y color para el campo de proveedor
             txtProveedor.Text = "Proveedor";
             txtProveedor.ForeColor = Color.Gray;
 
+            // Restaura el placeholder y color para el campo de código
             txtCodeAut.Text = "Código";
             txtCodeAut.ForeColor = Color.Gray;
 
+            // Limpia la variable de edición para indicar que no se está editando ningún producto
             productoEnEdicionId = null;
         }
 
+        /// <summary>
+        /// Evento que se ejecuta cuando se hace clic en una celda del DataGridView
+        /// Selecciona la fila completa cuando se hace clic en cualquier celda
+        /// </summary>
+        /// <param name="sender">Objeto que disparó el evento (DataGridView)</param>
+        /// <param name="e">Argumentos del evento de clic en celda</param>
         private void tblProductos_CellClick(object sender, DataGridViewCellEventArgs e)
         {
             if (e.RowIndex >= 0)
@@ -476,8 +636,15 @@ namespace JorStock
             }
         }
 
+        /// <summary>
+        /// Método que maneja el evento de clic del botón de búsqueda
+        /// Permite buscar productos por nombre y/o proveedor en la base de datos
+        /// </summary>
+        /// <param name="sender">Objeto que disparó el evento (botón buscar)</param>
+        /// <param name="e">Argumentos del evento</param>
         private async void btnBuscar_Click(object sender, EventArgs e)
         {
+            // Obtiene los criterios de búsqueda de los campos de texto
             string nombreBusqueda = txtNomAuto.Text;
             string proveedorBusqueda = txtProv.Text;
 
