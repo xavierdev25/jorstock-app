@@ -37,28 +37,26 @@ namespace JorStock
             int nHeightEllipse  // Alto de la elipse para las esquinas redondeadas
         );
         
+
         /// <summary>
         /// Constructor del formulario principal
         /// Inicializa la interfaz de usuario y configura todos los eventos necesarios
         /// </summary>
-        public Home()
+        public Home()   
         {
             InitializeComponent();
-            // Elimina el borde estándar del formulario para un diseño personalizado
             this.FormBorderStyle = FormBorderStyle.None;
-            // Aplica bordes redondeados al formulario
             Region = System.Drawing.Region.FromHrgn(CreateRoundRectRgn(0, 0, Width, Height, 15, 15));
-            // Configura los placeholders (textos de ayuda) en los campos de entrada
+
+
             ConfigurarPlaceholders();
-            // Configura los eventos de cambio de texto para validación en tiempo real
             ConfigurarEventosTextChanged();
-            // Configura el menú contextual para ordenamiento de productos
             ConfigurarMenuOrdenamiento();
-            // Asigna eventos a los botones principales
-            btnLimpiarBuscar.Click += btnLimpiarBuscar_Click;
-            btnEditar.Click += btnEditar_Click;
-            // Configura el DataGridView para selección de filas completas
+            
+            // Los eventos de los botones ya están asignados en el Designer
+            
             tblProductos.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            tblProductos.CellClick += tblProductos_CellClick;
         }
 
         /// <summary>
@@ -79,8 +77,7 @@ namespace JorStock
             menuOrdenar.Items.Add("Fecha reciente", null, OrdenarProductos_Click);
             menuOrdenar.Items.Add("Fecha antigua", null, OrdenarProductos_Click);
 
-            // Asigna el evento de clic al botón de ordenamiento
-            button5.Click += button5_Click;
+            // El evento de clic del botón de ordenamiento ya está asignado en el Designer
         }
 
         /// <summary>
@@ -160,10 +157,14 @@ namespace JorStock
         /// </summary>
         private async void CargarProductos()
         {
+            // Evitar llamadas duplicadas
+            if (cargandoProductos) return;
+            
+            cargandoProductos = true;
             try
             {
                 // Establece la conexión a MongoDB
-                var client = new MongoClient("mongodb://localhost:27017");
+                var client = new MongoClient("mongodb+srv://davidmg2512_db_user:KWuWRE2If9s3IBox@jorstock-cluster.tq7rw02.mongodb.net/?retryWrites=true&w=majority&appName=JorStock-Cluster");
                 var database = client.GetDatabase("JorStock");
                 var productosCollection = database.GetCollection<BsonDocument>("productos");
                 var proveedoresCollection = database.GetCollection<BsonDocument>("proveedores");
@@ -280,18 +281,18 @@ namespace JorStock
                             {
                                 var filtroProveedor = Builders<BsonDocument>.Filter.Eq("_id", proveedorId);
                                 var proveedor = await proveedoresCollection.Find(filtroProveedor).FirstOrDefaultAsync();
-                                if (proveedor != null && proveedor.Contains("nombre"))
+                                if (proveedor != null && proveedor.Contains("name"))
                                 {
-                                    nombreProveedor = proveedor["nombre"].ToString();
+                                    nombreProveedor = proveedor["name"].ToString();
                                 }
                             }
                             else
                             {
-                                var filtroProveedor = Builders<BsonDocument>.Filter.Eq("_id", codigoProveedor);
+                                var filtroProveedor = Builders<BsonDocument>.Filter.Eq("supplierId", codigoProveedor);
                                 var proveedor = await proveedoresCollection.Find(filtroProveedor).FirstOrDefaultAsync();
-                                if (proveedor != null && proveedor.Contains("nombre"))
+                                if (proveedor != null && proveedor.Contains("name"))
                                 {
-                                    nombreProveedor = proveedor["nombre"].ToString();
+                                    nombreProveedor = proveedor["name"].ToString();
                                 }
                             }
                         }
@@ -325,6 +326,10 @@ namespace JorStock
             {
                 MessageBox.Show($"Error al cargar los productos: {ex.Message}", "Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                cargandoProductos = false;
             }
         }
 
@@ -439,6 +444,11 @@ namespace JorStock
         private string productoEnEdicionId = null;
         
         /// <summary>
+        /// Variable de control para evitar llamadas duplicadas a CargarProductos
+        /// </summary>
+        private bool cargandoProductos = false;
+        
+        /// <summary>
         /// Método que maneja el evento de clic del botón guardar
         /// Permite crear nuevos productos o actualizar productos existentes en la base de datos
         /// </summary>
@@ -477,13 +487,13 @@ namespace JorStock
                 }
 
                 // Establece la conexión a MongoDB
-                var client = new MongoClient("mongodb://localhost:27017");
+                var client = new MongoClient("mongodb+srv://davidmg2512_db_user:KWuWRE2If9s3IBox@jorstock-cluster.tq7rw02.mongodb.net/?retryWrites=true&w=majority&appName=JorStock-Cluster");
                 var database = client.GetDatabase("JorStock");
 
                 var proveedoresCollection = database.GetCollection<BsonDocument>("proveedores");
 
                 // Busca si el proveedor ya existe en la base de datos
-                var filtroProveedor = Builders<BsonDocument>.Filter.Eq("nombre", txtProveedor.Text);
+                var filtroProveedor = Builders<BsonDocument>.Filter.Eq("name", txtProveedor.Text);
                 var proveedorExistente = await proveedoresCollection.Find(filtroProveedor).FirstOrDefaultAsync();
 
                 string codigoProveedor;
@@ -491,10 +501,25 @@ namespace JorStock
                 // Si el proveedor no existe, lo crea automáticamente
                 if (proveedorExistente == null)
                 {
+                    // Generar un supplierId único
+                    var countProveedores = await proveedoresCollection.CountDocumentsAsync(new BsonDocument()) + 1;
+                    var supplierId = $"SUP{countProveedores:000}";
+
                     var nuevoProveedor = new BsonDocument
                     {
-                        { "nombre", txtProveedor.Text },
-                        { "fecha_registro", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") }
+                        { "supplierId", supplierId },
+                        { "name", txtProveedor.Text },
+                        { "contactName", "Contacto General" },
+                        { "email", $"{txtProveedor.Text.ToLower().Replace(" ", "")}@proveedor.com" },
+                        { "phone", "+1-555-0000" },
+                        { "address", new BsonDocument {
+                            { "street", "Dirección no especificada" },
+                            { "city", "Ciudad" },
+                            { "state", "Estado" },
+                            { "zipCode", "00000" }
+                        }},
+                        { "category", "General" },
+                        { "status", "Activo" }
                     };
 
                     // Inserta el nuevo proveedor en la base de datos
@@ -502,12 +527,14 @@ namespace JorStock
 
                     // Obtiene el proveedor recién creado para obtener su ID
                     proveedorExistente = await proveedoresCollection.Find(filtroProveedor).FirstOrDefaultAsync();
-                    codigoProveedor = proveedorExistente["_id"].ToString();
+                    codigoProveedor = proveedorExistente["supplierId"].ToString();
                 }
                 else
                 {
-                    // Si el proveedor ya existe, usa su ID existente
-                    codigoProveedor = proveedorExistente["_id"].ToString();
+                    // Si el proveedor ya existe, usa su supplierId existente
+                    codigoProveedor = proveedorExistente.Contains("supplierId") ? 
+                        proveedorExistente["supplierId"].ToString() : 
+                        proveedorExistente["_id"].ToString();
                 }
 
                 var productosCollection = database.GetCollection<BsonDocument>("productos");
@@ -653,13 +680,17 @@ namespace JorStock
 
             if (nombreVacio && proveedorVacio)
             {
-                CargarProductos();
+                // Solo recargar si no estamos en medio de una operación de guardado
+                if (productoEnEdicionId == null)
+                {
+                    CargarProductos();
+                }
                 return;
             }
 
             try
             {
-                var client = new MongoClient("mongodb://localhost:27017");
+                var client = new MongoClient("mongodb+srv://davidmg2512_db_user:KWuWRE2If9s3IBox@jorstock-cluster.tq7rw02.mongodb.net/?retryWrites=true&w=majority&appName=JorStock-Cluster");
                 var database = client.GetDatabase("JorStock");
                 var productosCollection = database.GetCollection<BsonDocument>("productos");
                 var proveedoresCollection = database.GetCollection<BsonDocument>("proveedores");
@@ -675,7 +706,7 @@ namespace JorStock
 
                 if (!proveedorVacio)
                 {
-                    var filtroProveedorNombre = Builders<BsonDocument>.Filter.Regex("nombre",
+                    var filtroProveedorNombre = Builders<BsonDocument>.Filter.Regex("name",
                         new BsonRegularExpression(proveedorBusqueda, "i"));
                     var proveedores = await proveedoresCollection.Find(filtroProveedorNombre).ToListAsync();
 
@@ -684,7 +715,9 @@ namespace JorStock
                         var filtrosProveedor = new List<FilterDefinition<BsonDocument>>();
                         foreach (var proveedor in proveedores)
                         {
-                            var proveedorId = proveedor["_id"].ToString();
+                            var proveedorId = proveedor.Contains("supplierId") ? 
+                                proveedor["supplierId"].ToString() : 
+                                proveedor["_id"].ToString();
                             filtrosProveedor.Add(Builders<BsonDocument>.Filter.Eq("codigo_proveedor", proveedorId));
                         }
                         filtros.Add(Builders<BsonDocument>.Filter.Or(filtrosProveedor));
@@ -699,7 +732,11 @@ namespace JorStock
 
                 if (filtros.Count == 0)
                 {
-                    CargarProductos();
+                    // Solo recargar si no estamos en medio de una operación de guardado
+                    if (productoEnEdicionId == null)
+                    {
+                        CargarProductos();
+                    }
                     return;
                 }
 
@@ -786,18 +823,18 @@ namespace JorStock
                             {
                                 var filtroProveedor = Builders<BsonDocument>.Filter.Eq("_id", proveedorId);
                                 var proveedor = await proveedoresCollection.Find(filtroProveedor).FirstOrDefaultAsync();
-                                if (proveedor != null && proveedor.Contains("nombre"))
+                                if (proveedor != null && proveedor.Contains("name"))
                                 {
-                                    nombreProveedor = proveedor["nombre"].ToString();
+                                    nombreProveedor = proveedor["name"].ToString();
                                 }
                             }
                             else
                             {
-                                var filtroProveedor = Builders<BsonDocument>.Filter.Eq("_id", codigoProveedor);
+                                var filtroProveedor = Builders<BsonDocument>.Filter.Eq("supplierId", codigoProveedor);
                                 var proveedor = await proveedoresCollection.Find(filtroProveedor).FirstOrDefaultAsync();
-                                if (proveedor != null && proveedor.Contains("nombre"))
+                                if (proveedor != null && proveedor.Contains("name"))
                                 {
-                                    nombreProveedor = proveedor["nombre"].ToString();
+                                    nombreProveedor = proveedor["name"].ToString();
                                 }
                             }
                         }
@@ -831,7 +868,8 @@ namespace JorStock
             bool nombreVacio = txtNomAuto.Text == "Nombre de Autoparte" || string.IsNullOrWhiteSpace(txtNomAuto.Text);
             bool proveedorVacio = txtProv.Text == "Proveedor" || string.IsNullOrWhiteSpace(txtProv.Text);
 
-            if (nombreVacio && proveedorVacio)
+            // Solo recargar si ambos campos están vacíos Y no estamos en medio de una operación
+            if (nombreVacio && proveedorVacio && !string.IsNullOrEmpty(txtAutoparte.Text) && txtAutoparte.Text != "Nombre de Autoparte")
             {
                 CargarProductos();
             }
@@ -872,7 +910,7 @@ namespace JorStock
 
                 string serial = filaSeleccionada.Cells["Serial"].Value.ToString();
 
-                var client = new MongoClient("mongodb://localhost:27017");
+                var client = new MongoClient("mongodb+srv://davidmg2512_db_user:KWuWRE2If9s3IBox@jorstock-cluster.tq7rw02.mongodb.net/?retryWrites=true&w=majority&appName=JorStock-Cluster");
                 var database = client.GetDatabase("JorStock");
                 var productosCollection = database.GetCollection<BsonDocument>("productos");
 
@@ -913,9 +951,20 @@ namespace JorStock
                         var filtroProveedor = Builders<BsonDocument>.Filter.Eq("_id", proveedorId);
                         var proveedor = await proveedoresCollection.Find(filtroProveedor).FirstOrDefaultAsync();
 
-                        if (proveedor != null && proveedor.Contains("nombre"))
+                        if (proveedor != null && proveedor.Contains("name"))
                         {
-                            txtProveedor.Text = proveedor["nombre"].ToString();
+                            txtProveedor.Text = proveedor["name"].ToString();
+                            txtProveedor.ForeColor = Color.Black;
+                        }
+                    }
+                    else
+                    {
+                        var filtroProveedor = Builders<BsonDocument>.Filter.Eq("supplierId", codigoProveedor);
+                        var proveedor = await proveedoresCollection.Find(filtroProveedor).FirstOrDefaultAsync();
+
+                        if (proveedor != null && proveedor.Contains("name"))
+                        {
+                            txtProveedor.Text = proveedor["name"].ToString();
                             txtProveedor.ForeColor = Color.Black;
                         }
                     }
@@ -963,7 +1012,7 @@ namespace JorStock
                 }
 
 
-                var client = new MongoClient("mongodb://localhost:27017");
+                var client = new MongoClient("mongodb+srv://davidmg2512_db_user:KWuWRE2If9s3IBox@jorstock-cluster.tq7rw02.mongodb.net/?retryWrites=true&w=majority&appName=JorStock-Cluster");
                 var database = client.GetDatabase("JorStock");
                 var productosCollection = database.GetCollection<BsonDocument>("productos");
 
@@ -1043,5 +1092,6 @@ namespace JorStock
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
+
     }
 }
